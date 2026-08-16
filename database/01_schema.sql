@@ -1,0 +1,143 @@
+CREATE DATABASE IF NOT EXISTS edu_course;
+USE edu_course;
+
+SET FOREIGN_KEY_CHECKS = 0;
+
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS reviews;
+DROP TABLE IF EXISTS my_classes;
+DROP TABLE IF EXISTS materials;
+DROP TABLE IF EXISTS modules;
+DROP TABLE IF EXISTS pretests;
+DROP TABLE IF EXISTS courses;
+DROP TABLE IF EXISTS tutors;
+DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS users;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+CREATE TABLE users (
+    user_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    phone VARCHAR(30),
+    role ENUM('STUDENT', 'TUTOR', 'ADMIN') NOT NULL DEFAULT 'STUDENT',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE categories (
+    category_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    category_name VARCHAR(100) NOT NULL UNIQUE
+);
+
+CREATE TABLE tutors (
+    tutor_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    job_title VARCHAR(150),
+    company VARCHAR(150)
+);
+
+CREATE TABLE courses (
+    class_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    category_id BIGINT UNSIGNED NOT NULL,
+    tutor_id BIGINT UNSIGNED NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    level ENUM('BEGINNER', 'INTERMEDIATE', 'ADVANCED') NOT NULL DEFAULT 'BEGINNER',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_courses_category
+        FOREIGN KEY (category_id) REFERENCES categories(category_id)
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+    CONSTRAINT fk_courses_tutor
+        FOREIGN KEY (tutor_id) REFERENCES tutors(tutor_id)
+        ON UPDATE CASCADE ON DELETE RESTRICT
+);
+
+CREATE TABLE pretests (
+    pretest_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    class_id BIGINT UNSIGNED NOT NULL UNIQUE,
+    title VARCHAR(200) NOT NULL,
+    CONSTRAINT fk_pretests_course
+        FOREIGN KEY (class_id) REFERENCES courses(class_id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE modules (
+    module_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    class_id BIGINT UNSIGNED NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    module_order INT NOT NULL DEFAULT 1,
+    CONSTRAINT fk_modules_course
+        FOREIGN KEY (class_id) REFERENCES courses(class_id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE materials (
+    material_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    module_id BIGINT UNSIGNED NOT NULL,
+    type ENUM('VIDEO', 'DOCUMENT', 'QUIZ', 'ARTICLE') NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    CONSTRAINT fk_materials_module
+        FOREIGN KEY (module_id) REFERENCES modules(module_id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE my_classes (
+    my_class_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    class_id BIGINT UNSIGNED NOT NULL,
+    progress DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    completed_at DATETIME NULL,
+    certificate_url VARCHAR(500),
+    UNIQUE KEY uq_my_classes_user_course (user_id, class_id),
+    CONSTRAINT fk_my_classes_user
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_my_classes_course
+        FOREIGN KEY (class_id) REFERENCES courses(class_id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE reviews (
+    review_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    class_id BIGINT UNSIGNED NOT NULL,
+    rating TINYINT UNSIGNED NOT NULL,
+    comment TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_reviews_rating CHECK (rating BETWEEN 1 AND 5),
+    UNIQUE KEY uq_reviews_user_course (user_id, class_id),
+    CONSTRAINT fk_reviews_user
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT fk_reviews_course
+        FOREIGN KEY (class_id) REFERENCES courses(class_id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE orders (
+    order_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    order_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('PENDING', 'PAID', 'CANCELLED', 'COMPLETED') NOT NULL DEFAULT 'PENDING',
+    grand_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    CONSTRAINT fk_orders_user
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE TABLE payments (
+    payment_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT UNSIGNED NOT NULL UNIQUE,
+    method ENUM('BANK_TRANSFER', 'CREDIT_CARD', 'E_WALLET') NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    status ENUM('PENDING', 'SUCCESS', 'FAILED') NOT NULL DEFAULT 'PENDING',
+    paid_at DATETIME NULL,
+    CONSTRAINT fk_payments_order
+        FOREIGN KEY (order_id) REFERENCES orders(order_id)
+        ON UPDATE CASCADE ON DELETE CASCADE
+);
